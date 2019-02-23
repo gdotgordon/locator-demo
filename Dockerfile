@@ -4,12 +4,7 @@ FROM golang:1.11.5-alpine as builder
 # That's me!
 LABEL maintainer="Gary Gordon <gagordon12@gmail.com>"
 
-# Yep, we're even going to do the 'go get' for you,so we need git.
-RUN apk add git
-
 COPY . /go/src/github.com/gdotgordon/locator-demo
-
-RUN go get -v -d ./...
 
 WORKDIR /go/src/github.com/gdotgordon/locator-demo
 
