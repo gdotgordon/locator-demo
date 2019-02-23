@@ -16,6 +16,10 @@ func (nos NoOpStore) StoreLatency(d time.Duration) error {
 	return nil
 }
 
+func (nos NoOpStore) ClearDatabase() error {
+	return nil
+}
+
 func TestLookup(t *testing.T) {
 	l := New(30, NoOpStore{})
 

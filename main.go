@@ -31,23 +31,14 @@ func main() {
 	}
 	defer cli.Del(types.LatencyKey)
 
+	// We'll propagate the context with cancel thorughout the program,
+	// such as http clients, server methods we implement, and other
+	// loops using channels.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//sub := cli.PSubscribe("__key*__:*")
-	/*
-		sub := cli.Subscribe("__keyspace@0__:locator:testkey")
-		defer sub.Close()
-
-		// Wait for confirmation that subscription is created before publishing anything.
-		m, err := sub.Receive()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("received: %+v\n", m)
-		eventChan := sub.Channel()
-	*/
-
+	// Create and run the analyzer, which is the receiver of the Redis events
+	// from Redis actions of the other code, such as the Locator.
 	analyz, err := analyzer.New(cli)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating analyzer: '%s'\n", err)
@@ -55,7 +46,9 @@ func main() {
 	}
 	analyz.Run(ctx)
 
-	// Create Server and Route Handlers
+	// Create the server to handle geocode lookups.  The API module will
+	// set up the routes, as we don't need to know the details in the
+	// main program.
 	r := mux.NewRouter()
 	if err = api.Init(ctx, r, store.NewRedisStore(cli)); err != nil {
 		fmt.Fprintf(os.Stderr, "Error setting api: '%s'\n", err)
@@ -79,14 +72,14 @@ func main() {
 
 	//time.Sleep(5 * time.Second)
 	fmt.Println("*****************Setting value!")
-	err = cli.RPush(types.LatencyKey, 3, 4, 5.7789, 19).Err()
+	err = cli.LPush(types.LatencyKey, 3, 4, 5.7789, 19).Err()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error setting key: '%s'\n", err)
 		os.Exit(1)
 	}
 
-	// Graceful Shutdown
-	waitForShutdown(srv)
+	// Block until we shutdown.
+	waitForShutdown(ctx, srv)
 }
 
 func NewClient() (*redis.Client, error) {
@@ -108,7 +101,7 @@ func NewClient() (*redis.Client, error) {
 	return client, nil
 }
 
-func waitForShutdown(srv *http.Server) {
+func waitForShutdown(ctx context.Context, srv *http.Server) {
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
@@ -118,7 +111,7 @@ func waitForShutdown(srv *http.Server) {
 	fmt.Printf("received signal: %v\n", sig)
 
 	// Create a deadline to wait for.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 	srv.Shutdown(ctx)
 

@@ -1,9 +1,10 @@
+# This docker-compose script builds our program from scratch, and also
+# runs the requisite redis image.
 version: "3.5"
 
 services:
   app:
     build: .
-#    command: "/root/gtest"
     ports:
       - '8080'
     environment:

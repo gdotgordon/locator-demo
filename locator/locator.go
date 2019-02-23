@@ -1,3 +1,8 @@
+// Package locator implements the geocoding lookups.  It reords statistics
+// such as latency and stores them in the store (which at runtime in configured
+// to Redis), and these will be received as events by the Analyzer.  It also
+// defines the generic Locator interface, and the implmentaiton we are using
+// here, the one from the US Census Bureau.
 package locator
 
 import (
@@ -54,6 +59,7 @@ func (cl *CensusLocator) Locate(ctx context.Context,
 		return nil, errors.New("Structure number and Street are required")
 	}
 
+	// Set up the request URL based on the request objects passed in.
 	var buf bytes.Buffer
 	buf.WriteString("street=")
 	buf.WriteString(reqAddr.StructureNumber)
@@ -107,6 +113,8 @@ func (cl *CensusLocator) Locate(ctx context.Context,
 		return nil, fmt.Errorf("Error reading repsonse '%v,", err)
 	}
 
+	// The gjson package turns out to be far less cumbersome in extracting
+	// fields from a complex JSON object, compared to encoding/json.
 	js := string(b)
 	if !gjson.Valid(js) {
 		return nil, fmt.Errorf("Invalid JSON")
