@@ -1,4 +1,4 @@
-package locator
+package geolocator
 
 import (
 	"context"

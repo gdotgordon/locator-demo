@@ -1,9 +1,9 @@
-// Package locator implements the geocoding lookups.  It reords statistics
+// Package geolocator implements the geocoding lookups.  It reords statistics
 // such as latency and stores them in the store (which at runtime in configured
 // to Redis), and these will be received as events by the Analyzer.  It also
-// defines the generic Locator interface, and the implmentaiton we are using
+// defines the generic Geolocator interface, and the implmentaiton we are using
 // here, the one from the US Census Bureau.
-package locator
+package geolocator
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type Locator interface {
+type Geolocator interface {
 	Locate(context.Context, types.AddressRequest) (*types.AddressResponse, error)
 }
 
@@ -31,12 +31,12 @@ const (
 	CensusStdPrm = "&benchmark=9&format=json"
 )
 
-type CensusLocator struct {
+type CensusGeolocator struct {
 	client *http.Client
 	store  store.Store
 }
 
-func New(connTimeout int, store store.Store) Locator {
+func New(connTimeout int, store store.Store) Geolocator {
 	// The one client is thread safe for use by the scanners.
 	// Postman seems to complain about certificates, but no one else!
 	tr := &http.Transport{
@@ -46,10 +46,10 @@ func New(connTimeout int, store store.Store) Locator {
 	if connTimeout > 0 {
 		client.Timeout = time.Duration(connTimeout) * time.Second
 	}
-	return &CensusLocator{client: client, store: store}
+	return &CensusGeolocator{client: client, store: store}
 }
 
-func (cl *CensusLocator) Locate(ctx context.Context,
+func (cl *CensusGeolocator) Locate(ctx context.Context,
 	reqAddr types.AddressRequest) (*types.AddressResponse, error) {
 	start := time.Now()
 	defer func() {

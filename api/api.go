@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gdotgordon/locator-demo/locator"
+	"github.com/gdotgordon/locator-demo/geolocator"
 	"github.com/gdotgordon/locator-demo/store"
 	"github.com/gdotgordon/locator-demo/types"
 	"github.com/gorilla/mux"
 )
 
 type Api struct {
-	loc   locator.Locator
+	loc   geolocator.Geolocator
 	store store.Store
 }
 
@@ -24,7 +24,7 @@ func Init(ctx context.Context, r *mux.Router, store store.Store) error {
 	r.HandleFunc("/v1/status", wrapContext(ctx, ap.getStatus)).Methods("GET")
 	r.HandleFunc("/v1/reset", wrapContext(ctx, ap.reset)).Methods("GET")
 	r.HandleFunc("/v1/lookup", wrapContext(ctx, ap.lookup)).Methods("POST")
-	ap.loc = locator.New(30, store)
+	ap.loc = geolocator.New(30, store)
 	ap.store = store
 	return nil
 }

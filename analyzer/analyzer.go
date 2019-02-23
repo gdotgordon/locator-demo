@@ -12,6 +12,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gdotgordon/locator-demo/types"
@@ -19,7 +21,9 @@ import (
 )
 
 type Analyzer struct {
-	cli *redis.Client
+	cli        *redis.Client
+	latencyCnt uint64
+	mu         sync.Mutex
 }
 
 func New(cli *redis.Client) (*Analyzer, error) {
@@ -44,6 +48,11 @@ func (a *Analyzer) Run(ctx context.Context) {
 			case <-ctx.Done():
 				break
 			case msg := <-eventChan:
+				if strings.HasSuffix(msg.Channel, ":latency") &&
+					msg.Payload == "lpush" {
+					fmt.Println("This one!")
+					atomic.AddUint64(&a.latencyCnt, 1)
+				}
 				fmt.Printf(" go routine received message: %+v\n", msg)
 				fmt.Printf("with %v, %v, payload: '%v'\n", msg.Channel, msg.Pattern, msg.Payload)
 				ndx := strings.Index(msg.Channel, ":")
