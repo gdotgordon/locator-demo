@@ -51,6 +51,12 @@
 			"revisionTime": "2019-02-17T15:38:49Z"
 		},
 		{
+			"checksumSHA1": "odKru9qdXJ+6HUaebZMZI6qCufc=",
+			"path": "github.com/rs/xid",
+			"revision": "15d26544def341f036c5f8dca987a4cbe575032c",
+			"revisionTime": "2018-08-30T17:51:11Z"
+		},
+		{
 			"checksumSHA1": "IiKYeWteyF0x3VIqjBnLAXpiRJM=",
 			"path": "github.com/tidwall/gjson",
 			"revision": "181e11634d88481c14eeda620b056fdfaf330af9",

@@ -5,6 +5,7 @@ const (
 	LatencyKey = KeyPrefix + "latency"
 	SuccessKey = KeyPrefix + "success"
 	ErrorKey   = KeyPrefix + "error"
+	LockKey    = KeyPrefix + "lock"
 )
 
 type StatusResponse struct {

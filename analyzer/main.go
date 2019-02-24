@@ -46,8 +46,6 @@ func main() {
 	}
 	receiver.Run(ctx, *numWorkers)
 
-	fmt.Println("$$$$$$$$$ receiver has started loop!!!!!!!!!")
-
 	// Create the server to handle stats requests.  The API module will
 	// set up the routes, as we don't need to know the details in the
 	// main program.

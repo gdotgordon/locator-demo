@@ -1,3 +1,4 @@
+// Pacakge api is the endpoint implementation for the analyzer service.
 package api
 
 import (
@@ -21,6 +22,7 @@ func Init(ctx context.Context, r *mux.Router,
 	ap := Api{receiver: receiver}
 	r.HandleFunc("/v1/status", wrapContext(ctx, ap.getStatus)).Methods("GET")
 	r.HandleFunc("/v1/statistics", wrapContext(ctx, ap.getStatistics)).Methods("GET")
+	r.HandleFunc("/v1/reset", wrapContext(ctx, ap.reset)).Methods("GET")
 	return nil
 }
 
@@ -40,7 +42,7 @@ func (a *Api) getStatus(w http.ResponseWriter, r *http.Request) {
 	w.Write(b.Bytes())
 }
 
-// Look up a geocdoing.
+// Gets the statistics accumulated by the Redis event receiver.
 func (a *Api) getStatistics(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
@@ -65,6 +67,16 @@ func (a *Api) getStatistics(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	w.Write(buf.Bytes())
+}
+
+// Clears the redis database.
+func (a *Api) reset(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	if err := a.receiver.Reset(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func wrapContext(ctx context.Context, hf http.HandlerFunc) http.HandlerFunc {

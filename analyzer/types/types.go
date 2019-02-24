@@ -16,7 +16,8 @@ type StatusResponse struct {
 
 // StatsResponse is the response to a call to get accumulated statistics.
 type StatsResponse struct {
-	Success int64  `json:"success"`
-	Failure int64  `json:"failure"`
-	Latency string `json:"latency"`
+	Success      int64  `json:"success"`
+	Failure      int64  `json:"failure"`
+	LatencyCount int64  `json:"latency_events"`
+	Latency      string `json:"latency"`
 }
