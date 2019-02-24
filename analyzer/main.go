@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,7 +17,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var (
+	numWorkers = flag.Int("numWorkrs", 3, "Number of reciever workers")
+)
+
 func main() {
+	flag.Parse()
+
 	var err error
 	cli, err := NewClient()
 	if err != nil {
@@ -37,7 +44,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error creating receiver: '%s'\n", err)
 		os.Exit(1)
 	}
-	receiver.Run(ctx)
+	receiver.Run(ctx, *numWorkers)
 
 	fmt.Println("$$$$$$$$$ receiver has started loop!!!!!!!!!")
 

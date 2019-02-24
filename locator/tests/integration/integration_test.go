@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"sync"
 	"testing"
 )
 
@@ -61,6 +62,32 @@ func TestSingleInvoke(t *testing.T) {
 
 	b, _ := ioutil.ReadAll(resp.Body)
 	fmt.Printf("here's my response: '%s'\n", b)
+}
+
+func TestConcurrentInvoke(t *testing.T) {
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var buf bytes.Buffer
+			buf.Write([]byte(req1))
+			resp, err := http.Post("http://"+appAddr+"/v1/lookup",
+				"application/json", &buf)
+			if err != nil {
+				log.Fatalf("error requesting location: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				log.Fatalf("Unexpected retrun code: %d", resp.StatusCode)
+			}
+
+			b, _ := ioutil.ReadAll(resp.Body)
+			fmt.Printf("here's my response: '%s'\n", b)
+		}()
+	}
+	wg.Wait()
 }
 
 func getAppAddr() (string, error) {

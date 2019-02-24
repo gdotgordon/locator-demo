@@ -32,55 +32,52 @@ func New(cli *redis.Client) (*Receiver, error) {
 	return &Receiver{cli: cli}, nil
 }
 
-func (r *Receiver) Run(ctx context.Context) {
-	fmt.Printf("Run Receiver at: %x\n", r)
-	fmt.Printf("RUN &&&&&&&&&cli = %v\n", r.cli)
+func (r *Receiver) Run(ctx context.Context, numWorkers int) {
 	topic := fmt.Sprintf("__keyspace@0__:%s*", types.KeyPrefix)
 	sub := r.cli.PSubscribe(topic)
 	// Wait for confirmation that subscription is created before publishing anything.
-	m, err := sub.Receive()
+	_, err := sub.Receive()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("received: %+v\n", m)
 	eventChan := sub.Channel()
 
-	go func() {
-		defer sub.Close()
-
-		for {
-			select {
-			case <-ctx.Done():
-				break
-			case msg, ok := <-eventChan:
-				if !ok {
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
 					break
+				case msg, ok := <-eventChan:
+					if !ok {
+						break
+					}
+					fmt.Printf("Received message: +%v\n", msg)
+					if strings.HasSuffix(msg.Channel, ":latency") &&
+						msg.Payload == "lpush" {
+						atomic.AddUint64(&r.latencyCnt, 1)
+					} else if strings.HasSuffix(msg.Channel, ":success") &&
+						msg.Payload == "incrby" {
+						atomic.AddInt64(&r.succCnt, 1)
+					} else if strings.HasSuffix(msg.Channel, ":error") &&
+						msg.Payload == "incrby" {
+						atomic.AddInt64(&r.errCnt, 1)
+					}
+					fmt.Printf(" go routine received message: %+v\n", msg)
+					fmt.Printf("with %v, %v, payload: '%v'\n", msg.Channel, msg.Pattern, msg.Payload)
+					ndx := strings.Index(msg.Channel, ":")
+					key := msg.Channel[ndx+1:]
+					fmt.Println("key: ", key)
+					res, err := r.cli.LRange(types.LatencyKey, 0, 100).Result()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Error getting key: '%s'\n", err)
+						break
+					}
+					fmt.Printf("value is '%s'\n", res)
 				}
-				fmt.Printf("Received message: +%v\n", msg)
-				if strings.HasSuffix(msg.Channel, ":latency") &&
-					msg.Payload == "lpush" {
-					atomic.AddUint64(&r.latencyCnt, 1)
-				} else if strings.HasSuffix(msg.Channel, ":success") &&
-					msg.Payload == "incrby" {
-					atomic.AddInt64(&r.succCnt, 1)
-				} else if strings.HasSuffix(msg.Channel, ":error") &&
-					msg.Payload == "incrby" {
-					atomic.AddInt64(&r.errCnt, 1)
-				}
-				fmt.Printf(" go routine received message: %+v\n", msg)
-				fmt.Printf("with %v, %v, payload: '%v'\n", msg.Channel, msg.Pattern, msg.Payload)
-				ndx := strings.Index(msg.Channel, ":")
-				key := msg.Channel[ndx+1:]
-				fmt.Println("key: ", key)
-				res, err := r.cli.LRange(types.LatencyKey, 0, 100).Result()
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error getting key: '%s'\n", err)
-					break
-				}
-				fmt.Printf("value is '%s'\n", res)
 			}
-		}
-	}()
+		}()
+	}
 }
 
 func (r *Receiver) GetStats() (*types.StatsResponse, error) {
