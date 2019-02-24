@@ -9,6 +9,7 @@ package receiver
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -25,13 +26,17 @@ type Receiver struct {
 	latencyCnt uint64
 	succCnt    int64
 	errCnt     int64
-	mu         sync.Mutex
 }
 
+// New creates a new event receiver for keyspace events.
 func New(cli *redis.Client) (*Receiver, error) {
 	return &Receiver{cli: cli}, nil
 }
 
+// Run is the main event loop processor.  For each event read, it
+// takes the appropriate action, which in our case is to simply store
+// them in our instance.  In real life, you might pass the data off
+// to a tracking system like Prometheus or a database.
 func (r *Receiver) Run(ctx context.Context, numWorkers int) {
 	topic := fmt.Sprintf("__keyspace@0__:%s*", types.KeyPrefix)
 	sub := r.cli.PSubscribe(topic)
@@ -42,42 +47,58 @@ func (r *Receiver) Run(ctx context.Context, numWorkers int) {
 	}
 	eventChan := sub.Channel()
 
-	for i := 0; i < numWorkers; i++ {
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					break
-				case msg, ok := <-eventChan:
-					if !ok {
-						break
-					}
-					fmt.Printf("Received message: +%v\n", msg)
-					if strings.HasSuffix(msg.Channel, ":latency") &&
-						msg.Payload == "lpush" {
-						atomic.AddUint64(&r.latencyCnt, 1)
-					} else if strings.HasSuffix(msg.Channel, ":success") &&
-						msg.Payload == "incrby" {
-						atomic.AddInt64(&r.succCnt, 1)
-					} else if strings.HasSuffix(msg.Channel, ":error") &&
-						msg.Payload == "incrby" {
-						atomic.AddInt64(&r.errCnt, 1)
-					}
-					fmt.Printf(" go routine received message: %+v\n", msg)
-					fmt.Printf("with %v, %v, payload: '%v'\n", msg.Channel, msg.Pattern, msg.Payload)
-					ndx := strings.Index(msg.Channel, ":")
-					key := msg.Channel[ndx+1:]
-					fmt.Println("key: ", key)
-					res, err := r.cli.LRange(types.LatencyKey, 0, 100).Result()
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "Error getting key: '%s'\n", err)
-						break
-					}
-					fmt.Printf("value is '%s'\n", res)
+	// This function will be invoked in thr event loop, and is moved
+	// out of the loop for readability's sake.
+	var wg sync.WaitGroup
+	processEvents := func() {
+		defer wg.Done()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-eventChan:
+				if !ok {
+					return
 				}
+				fmt.Printf("Received message: +%v\n", msg)
+				if strings.HasSuffix(msg.Channel, ":latency") &&
+					msg.Payload == "lpush" {
+					atomic.AddUint64(&r.latencyCnt, 1)
+				} else if strings.HasSuffix(msg.Channel, ":success") &&
+					msg.Payload == "incrby" {
+					atomic.AddInt64(&r.succCnt, 1)
+				} else if strings.HasSuffix(msg.Channel, ":error") &&
+					msg.Payload == "incrby" {
+					atomic.AddInt64(&r.errCnt, 1)
+				}
+				fmt.Printf(" go routine received message: %+v\n", msg)
+				fmt.Printf("with %v, %v, payload: '%v'\n", msg.Channel, msg.Pattern, msg.Payload)
+				ndx := strings.Index(msg.Channel, ":")
+				key := msg.Channel[ndx+1:]
+				fmt.Println("key: ", key)
+				res, err := r.cli.LRange(types.LatencyKey, 0, 100).Result()
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error getting key: '%s'\n", err)
+					break
+				}
+				fmt.Printf("value is '%s'\n", res)
 			}
-		}()
+		}
 	}
+
+	// Launch the event loops.
+	go func() {
+		defer sub.Close()
+
+		for i := 0; i < numWorkers; i++ {
+			wg.Add(1)
+			go func() {
+				processEvents()
+			}()
+		}
+		wg.Wait()
+	}()
 }
 
 func (r *Receiver) GetStats() (*types.StatsResponse, error) {
@@ -93,10 +114,11 @@ func (r *Receiver) GetStats() (*types.StatsResponse, error) {
 		}
 		sum += f
 	}
-	var avg time.Duration
+	var avg float64
 	if len(res) > 0 {
-		avg = time.Duration(sum / int64(len(res)))
+		avg = float64(sum) / float64(len(res))
 	}
+	davg := time.Duration(int64(math.Round(avg)))
 	return &types.StatsResponse{Success: r.succCnt, Failure: r.errCnt,
-		Latency: avg}, nil
+		Latency: davg.String()}, nil
 }
