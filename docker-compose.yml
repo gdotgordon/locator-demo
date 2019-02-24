@@ -3,10 +3,19 @@
 version: "3.5"
 
 services:
-  app:
-    build: .
+  locator:
+    build: ./locator
     ports:
       - '8080'
+    environment:
+      REDIS_URL: redis:6379
+    depends_on:
+      - redis
+
+  analyzer:
+    build: ./analyzer
+    ports:
+      - '8090'
     environment:
       REDIS_URL: redis:6379
     depends_on:

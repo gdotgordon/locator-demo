@@ -1,0 +1,73 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "eAtsMRh3U0x7CpCEaLNps1pHKss=",
+			"path": "github.com/go-redis/redis",
+			"revision": "bd542089bb6e776e6fced5038edac8a0f526aa53",
+			"revisionTime": "2019-02-21T08:29:04Z"
+		},
+		{
+			"checksumSHA1": "z12gGj6VbVBcPOvof1aCM+DVGRU=",
+			"path": "github.com/go-redis/redis/internal",
+			"revision": "bd542089bb6e776e6fced5038edac8a0f526aa53",
+			"revisionTime": "2019-02-21T08:29:04Z"
+		},
+		{
+			"checksumSHA1": "GQZsUVg/+6UpQAYpc4luMvMutSI=",
+			"path": "github.com/go-redis/redis/internal/consistenthash",
+			"revision": "bd542089bb6e776e6fced5038edac8a0f526aa53",
+			"revisionTime": "2019-02-21T08:29:04Z"
+		},
+		{
+			"checksumSHA1": "l66eTZiJqueypc56HXCakGDm784=",
+			"path": "github.com/go-redis/redis/internal/hashtag",
+			"revision": "bd542089bb6e776e6fced5038edac8a0f526aa53",
+			"revisionTime": "2019-02-21T08:29:04Z"
+		},
+		{
+			"checksumSHA1": "WoUjtqpn00RUnAgZLljk3lWfpSQ=",
+			"path": "github.com/go-redis/redis/internal/pool",
+			"revision": "bd542089bb6e776e6fced5038edac8a0f526aa53",
+			"revisionTime": "2019-02-21T08:29:04Z"
+		},
+		{
+			"checksumSHA1": "zCo0t+gRBbctwyIpkDLrqRFtXew=",
+			"path": "github.com/go-redis/redis/internal/proto",
+			"revision": "bd542089bb6e776e6fced5038edac8a0f526aa53",
+			"revisionTime": "2019-02-21T08:29:04Z"
+		},
+		{
+			"checksumSHA1": "1PH2NoAB/u3IZmLYyCrIbOzqLZ4=",
+			"path": "github.com/go-redis/redis/internal/util",
+			"revision": "bd542089bb6e776e6fced5038edac8a0f526aa53",
+			"revisionTime": "2019-02-21T08:29:04Z"
+		},
+		{
+			"checksumSHA1": "9YQYg2PkA7lkFuUyCQGUv0vX5zA=",
+			"path": "github.com/gorilla/mux",
+			"revision": "8559a4f775fc329165fe32bd4c2543de8ada8fce",
+			"revisionTime": "2019-02-17T15:38:49Z"
+		},
+		{
+			"checksumSHA1": "IiKYeWteyF0x3VIqjBnLAXpiRJM=",
+			"path": "github.com/tidwall/gjson",
+			"revision": "181e11634d88481c14eeda620b056fdfaf330af9",
+			"revisionTime": "2019-02-17T02:21:12Z"
+		},
+		{
+			"checksumSHA1": "8jl+NYRKijAXkUwjpy89Q60q00A=",
+			"path": "github.com/tidwall/match",
+			"revision": "33827db735fff6510490d69a8622612558a557ed",
+			"revisionTime": "2018-12-10T10:08:38Z"
+		},
+		{
+			"checksumSHA1": "xvqu+P9YeaxJJ/ejjMkl8iXrSBk=",
+			"path": "github.com/tidwall/pretty",
+			"revision": "65a9db5fad5105a89e17f38adcc9878685be6d78",
+			"revisionTime": "2018-01-05T21:21:14Z"
+		}
+	],
+	"rootPath": "github.com/gdotgordon/locator-demo/locator"
+}
