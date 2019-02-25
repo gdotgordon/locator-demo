@@ -21,6 +21,8 @@ Back to semantics, Redis has the feature that multiple requests from all over ar
 
 * Build instructions (any 3rd party requirements and how to generally get them setup on either linux or mac) -- docker-compose or something similar is suggested
 
+First, clone this repo locally.  If you want to run the tests, you'll need to clone the repo into the proper place in a hierarchy with the GOPATH apprpriately set.  I used traditional vendoring and haven't tried this with the new Go modules.  The actaul services run in docker containers using `docker-compose`.
+
 I have written a docker-compose script and Dockerfiles to build both microservices.  There is also a puny Makefile present, so you can run `make composeup` from the _locator-demo_ top-level directory to build and start both services and redis.  You can ctrl-C to kill everything, or much better you can run `make composedown`, which more actually seems to send the termination signal to PID 1.  If you don't have `make`, you can simply copy those commands out of the Makefile: `docker-compose up --build` to start and `docker-compose down --volumes --rmi all` to shutdown.  Running compuseup from a terminal, you will see the output from each service, a different color at the start of the output for each service.  Note I created vendor folder for each service, to avoid `go get`
 
 - Usage instructions (i.e. samples to actually show how it works)
