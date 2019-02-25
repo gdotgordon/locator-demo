@@ -8,6 +8,7 @@ package store
 import (
 	"time"
 
+	"github.com/gdotgordon/locator-demo/locator/locking"
 	"github.com/gdotgordon/locator-demo/locator/types"
 	"github.com/go-redis/redis"
 )
@@ -17,6 +18,8 @@ type Store interface {
 	AddSuccess() error
 	AddError() error
 	ClearDatabase() error
+	AcquireLock() (*locking.Lock, error)
+	Unlock(lock *locking.Lock) error
 }
 
 type RedisStore struct {
@@ -25,6 +28,15 @@ type RedisStore struct {
 
 func NewRedisStore(cli *redis.Client) Store {
 	return &RedisStore{cli: cli}
+}
+
+func (rs *RedisStore) AcquireLock() (*locking.Lock, error) {
+	lck := locking.New(rs.cli, 1*time.Minute, 10)
+	return lck, lck.Lock()
+}
+
+func (rs *RedisStore) Unlock(lock *locking.Lock) error {
+	return lock.Unlock()
 }
 
 func (rs *RedisStore) ClearDatabase() error {

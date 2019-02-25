@@ -1,3 +1,5 @@
+// Package main runs the locator microservice.  It spins up an http
+// server to handle requests, which are handled by the api package.
 package main
 
 import (
@@ -12,7 +14,6 @@ import (
 
 	"github.com/gdotgordon/locator-demo/locator/api"
 	"github.com/gdotgordon/locator-demo/locator/store"
-	"github.com/gdotgordon/locator-demo/locator/types"
 	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
 )
@@ -24,11 +25,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error creating redis client: '%s'\n", err)
 		os.Exit(1)
 	}
-	if cli.Del(types.LatencyKey).Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error deleting key: '%s'\n", err)
-		os.Exit(1)
-	}
-	defer cli.Del(types.LatencyKey)
 
 	// We'll propagate the context with cancel thorughout the program,
 	// such as http clients, server methods we implement, and other
@@ -83,9 +79,7 @@ func waitForShutdown(ctx context.Context, srv *http.Server) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	// Block until we receive our signal.
-	fmt.Println("blocking on signal ...")
-	sig := <-interruptChan
-	fmt.Printf("received signal: %v\n", sig)
+	<-interruptChan
 
 	// Create a deadline to wait for.
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)

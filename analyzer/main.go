@@ -1,3 +1,8 @@
+// Package main runs the analyzerr microservice.  It spins up an http
+// server to handle requests, which are handled by the api package.
+// It also spins up a 'receiver' instance (package receiver), which
+// contains both the keystore receive events, plus has APIs to retrieve
+// statistics.
 package main
 
 import (
@@ -98,9 +103,7 @@ func waitForShutdown(ctx context.Context, srv *http.Server) {
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	// Block until we receive our signal.
-	fmt.Println("blocking on signal ...")
-	sig := <-interruptChan
-	fmt.Printf("received signal: %v\n", sig)
+	<-interruptChan
 
 	// Create a deadline to wait for.
 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)

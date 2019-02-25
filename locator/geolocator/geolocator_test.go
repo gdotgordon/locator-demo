@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gdotgordon/locator-demo/locator/locking"
 	"github.com/gdotgordon/locator-demo/locator/types"
 )
 
@@ -26,6 +27,14 @@ func (nos NoOpStore) AddError() error {
 }
 
 func (nos NoOpStore) ClearDatabase() error {
+	return nil
+}
+
+func (nos NoOpStore) AcquireLock() (*locking.Lock, error) {
+	return nil, nil
+}
+
+func (nos NoOpStore) Unlock(lock *locking.Lock) error {
 	return nil
 }
 

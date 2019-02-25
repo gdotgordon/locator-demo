@@ -17,11 +17,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gdotgordon/locator-demo/locator/locking"
 	"github.com/gdotgordon/locator-demo/locator/store"
 	"github.com/gdotgordon/locator-demo/locator/types"
 	"github.com/tidwall/gjson"
 )
 
+// Geolocator has a single method, namely to look up the x,y for the address.
 type Geolocator interface {
 	Locate(context.Context, types.AddressRequest) (*types.AddressResponse, error)
 }
@@ -31,11 +33,14 @@ const (
 	CensusStdPrm = "&benchmark=9&format=json"
 )
 
+// Our implementation uses the free service at the US Census bureau.
 type CensusGeolocator struct {
-	client *http.Client
-	store  store.Store
+	client     *http.Client
+	store      store.Store
+	useLocking bool
 }
 
+// New creates a new CensusGeolocator
 func New(connTimeout int, store store.Store) Geolocator {
 	// The one client is thread safe for use by the scanners.
 	// Postman seems to complain about certificates, but no one else!
@@ -49,20 +54,24 @@ func New(connTimeout int, store store.Store) Geolocator {
 	return &CensusGeolocator{client: client, store: store}
 }
 
+// Locate does a geolocation lookup.  At the end (in defer) gather up some
+// stats and store them in redis, triggering key events.
 func (cl *CensusGeolocator) Locate(ctx context.Context,
 	reqAddr types.AddressRequest) (*types.AddressResponse, error) {
 	start := time.Now()
 	var err error
+
+	// Here we invoke the function that sets the redis keys that
+	// will trigger notifications in the analyzer.
 	defer func() {
-		cl.store.StoreLatency(time.Now().Sub(start))
-		if err != nil {
-			cl.store.AddError()
-		} else {
-			cl.store.AddSuccess()
-		}
+		serr := err
+		cl.sendStats(start, serr)
 	}()
+
 	if reqAddr.StructureNumber == "" || reqAddr.Street == "" {
-		return nil, errors.New("Structure number and Street are required")
+		log.Printf("request invalid: missing unit number")
+		err = errors.New("Structure number and Street are required")
+		return nil, err
 	}
 
 	// Set up the request URL based on the request objects passed in.
@@ -105,25 +114,29 @@ func (cl *CensusGeolocator) Locate(ctx context.Context,
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("location lookup failed '%s': %v\n", reqUrl, err)
-		return nil, fmt.Errorf("HTTP status %d : %s", resp.StatusCode,
+		err = fmt.Errorf("HTTP status %d : %s", resp.StatusCode,
 			http.StatusText(resp.StatusCode))
+		return nil, err
 	}
 	ct := resp.Header.Get("Content-type")
 	if !strings.HasPrefix(ct, "application/json") {
-		return nil, fmt.Errorf("Unexpected content type '%s,", ct)
+		err = fmt.Errorf("Unexpected content type '%s,", ct)
+		return nil, err
 	}
 
 	var ar types.AddressResponse
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Error reading repsonse '%v,", err)
+		err = fmt.Errorf("Error reading repsonse '%v,", err)
+		return nil, err
 	}
 
 	// The gjson package turns out to be far less cumbersome in extracting
 	// fields from a complex JSON object, compared to encoding/json.
 	js := string(b)
 	if !gjson.Valid(js) {
-		return nil, fmt.Errorf("Invalid JSON")
+		err = fmt.Errorf("Invalid JSON")
+		return nil, err
 	}
 
 	// If no matches, just return an empty struct, which sifgnifies "not found".
@@ -141,4 +154,46 @@ func (cl *CensusGeolocator) Locate(ctx context.Context,
 	ar.Coordinates.X = m["x"].Float()
 	ar.Coordinates.Y = m["y"].Float()
 	return &ar, nil
+}
+
+// Here is where all the redis keys are set.  The store object (cl.store)
+// is the encapsulation of the actual redis calls (see store/store.go).
+//
+// Note, the object locking, discussed in the writeup, is not enabled
+// here, due to the weakness of the Redis-suggested algorithm, plus it
+// is not needed given the semantics of the parameters in terms of
+// the order thy are received.  But you may enable it, and it will
+// work fine for reasonably small numbers of concurrent requests.
+func (cl *CensusGeolocator) sendStats(start time.Time, gerr error) {
+	var err error
+	var lock *locking.Lock
+	if cl.useLocking {
+		lock, err = cl.store.AcquireLock()
+		if err != nil {
+			log.Printf("error acquiring lock, stats not saved: %v", err)
+			return
+		}
+	}
+
+	// Store the parameters of interest.
+	if err = cl.store.StoreLatency(time.Now().Sub(start)); err != nil {
+		log.Printf("error storing latency, skipped: %v", err)
+	}
+
+	if gerr != nil {
+		if err = cl.store.AddError(); err != nil {
+			log.Printf("error storing error, skipped: %v", err)
+		}
+	} else {
+		if err = cl.store.AddSuccess(); err != nil {
+			log.Printf("error storing error, skipped: %v", err)
+		}
+	}
+
+	// Meh.
+	if cl.useLocking {
+		if err = cl.store.Unlock(lock); err != nil {
+			log.Printf("error unlocking, stats not saved: %v", err)
+		}
+	}
 }

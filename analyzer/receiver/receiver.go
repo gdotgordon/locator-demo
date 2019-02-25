@@ -10,6 +10,7 @@ package receiver
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -61,10 +62,10 @@ func (r *Receiver) Run(ctx context.Context, numWorkers int) {
 				if !ok {
 					return
 				}
-				fmt.Printf("Received message: +%v\n", msg)
+				log.Printf("Received message: +%v\n", msg)
 				ndx := strings.Index(msg.Channel, ":")
 				key := msg.Channel[ndx+1:]
-				fmt.Println("key: ", key)
+				log.Println("key: ", key)
 				if strings.HasSuffix(msg.Channel, ":latency") &&
 					msg.Payload == "lpush" {
 					atomic.AddInt64(&r.latencyCnt, 1)

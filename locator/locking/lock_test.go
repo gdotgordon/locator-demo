@@ -1,4 +1,4 @@
-package lock
+package locking
 
 import (
 	"fmt"
@@ -16,14 +16,14 @@ func TestLock(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		wg.Add(1)
 
 		i := i
 		go func() {
 			defer wg.Done()
 
-			lock := New(cli, 5*time.Second, 10)
+			lock := New(cli, 1*time.Minute, 10)
 
 			err := lock.Lock()
 			if err != nil {

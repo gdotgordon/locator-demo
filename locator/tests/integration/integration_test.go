@@ -22,7 +22,14 @@ const (
     "city": "Suitland",
     "state": "MD",
     "zip": "20746"
-}`
+	}`
+
+	badReq = `{
+    "street": "Silver Hill Rd",
+    "city": "Suitland",
+    "state": "MD",
+    "zip": "20746"
+	}`
 )
 
 var (
@@ -34,7 +41,6 @@ func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 	locatorAddr, _ = getAppAddr("locator", "8080")
 	analyzerAddr, _ = getAppAddr("analyzer", "8090")
-	fmt.Println("locator", locatorAddr, "analyzer", analyzerAddr)
 	os.Exit(m.Run())
 }
 
@@ -84,12 +90,18 @@ func TestConcurrentInvoke(t *testing.T) {
 		t.Fatalf("error clearing database: %v", err)
 	}
 	var wg sync.WaitGroup
+
 	for i := 0; i < 5; i++ {
+		i := i
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			var buf bytes.Buffer
-			buf.Write([]byte(req1))
+			if i != 0 {
+				buf.Write([]byte(req1))
+			} else {
+				buf.Write([]byte(badReq))
+			}
 			resp, err := http.Post("http://"+locatorAddr+"/v1/lookup",
 				"application/json", &buf)
 			if err != nil {
@@ -97,12 +109,12 @@ func TestConcurrentInvoke(t *testing.T) {
 			}
 			defer resp.Body.Close()
 
-			if resp.StatusCode != http.StatusOK {
+			if i != 0 && resp.StatusCode != http.StatusOK {
 				log.Fatalf("Unexpected return code: %d", resp.StatusCode)
 			}
 
 			b, _ := ioutil.ReadAll(resp.Body)
-			fmt.Printf("here's my response: '%s'\n", b)
+			fmt.Printf("got response: '%s'\n", b)
 		}()
 	}
 	wg.Wait()
