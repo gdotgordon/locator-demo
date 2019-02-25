@@ -77,10 +77,46 @@ and see something like
 ```
 
 - Unit tests
+
+There are unit tests in some packages.  The ones in locator/geolocator/geolocator_test.go show my preferred style of creating an array of test case structs, followed by test logic for each array member.  If I had more time, I would have mocked out the actual service lookup in addition to the Store interface.
 - Integration tests
+Again, locator/tests.integration, run `go test`
+
 - Are there any shortcomings of the code?
+As mentioned, the distributed locking mechanism is weak.  All the threading models of sender and receiver are all available and configurable, but as I said earlier, it might be nice to have an ack keysapce event receiver on the sender side, but I can add this to the code if requested.
+
 - How might this project be scaled?
+The locator can easily be replicated N times.  To scale the analyzer (the receiver) is more challenging, again it depends on the semantics of the data being sent and atomicity requirements.  The redis-go package does not support things like pipelines concurrently, for one.  The specfific answer depends on the exact requirements.
+
 - How might one approach doing sequential versus parallel tasks?
+I discussed this in the "Events and Semantics" seciton above.
+
+## Code Roadmap
+
+The root directory is _locator-demo_, both services _locator_ and _analyzer_ are directly below this.  Each has a main that launches the entities of interest.  Both also contain the Redis initialization code, and thanalyzer has extra code for pubsub and keyspace listeners.
+
+In _locator_ the package `geolocator` has the code that sets the Redis keys that will be picked up by the analyzer.  Given tht I wrote the code to potentially use another mechanism besides redis, the geolocator only knows about the generic _Store_ interface.  The Redis-specific store in under the `store` package.
+
+Some lines to check out:
+[https://github.com/gdotgordon/locator-demo/blob/master/locator/geolocator/geolocator.go#L68]
+[https://github.com/gdotgordon/locator-demo/blob/master/locator/geolocator/geolocator.go#L159]
+[https://github.com/gdotgordon/locator-demo/blob/master/locator/store/store.go]
+
+In _analyzer_ the receiver processes the received events based on the tags received.
+[https://github.com/gdotgordon/locator-demo/blob/master/analyzer/receiver/receiver.go]
+
+## External Pckages Used and Licenses
+* https://github.com/go-redis/redis - BSD 2-Clause "Simplified" License
+* https://github.com/tidwall/gjson - MIT License
+* https://github.com/gorilla/mux - BSD 3-Clause "New" or "Revised" License
+* https://github.com/rs/xid - MIT License
+
+## Conclusion
+Being fairly new to Redis, there are possibly more advanced features that would have helped my implmentation.  I did my best in the time I had to add enough flexibility to consider the various scenarios, but it writing one-size-fits-all code is not always the best approach, and if this were production code, I would have fleshed out each of the semantic case and written a framework to handle each of these.
+
+In general, hopefully the code shows good principles of microservice architecture and design and testing.
+
+Back to our regularly scheduled program ...
 
 
 ## Project Background
