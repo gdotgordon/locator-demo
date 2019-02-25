@@ -126,7 +126,7 @@ In _analyzer_ the receiver processes the received events based on the tags recei
 
 ## Conclusion
 
-Being fairly new to Redis, there are possibly more advanced features that would have helped my implementation.  I did my best in the time I had to add enough flexibility to consider the various scenarios, but writing one-size-fits-all code is not always the best approach, and if this were production code, I would have fleshed out each of the semantic cases and written a framework to handle each of these.
+Being fairly new to Redis, there are possibly more advanced features that would have helped my implementation.  I did my best in the time I had to add enough flexibility to consider the various scenarios, but if this were production code, I would have fleshed out each of the semantic cases and written a framework to handle them.
 
 In general, hopefully the code shows good principles of microservice architecture and design and testing.
 
