@@ -2,16 +2,16 @@
 
 ## Introduction and Overview
 
-I have created a demo program that shows a microservices-based solution for tracking and reporting events of interest using the suggested method of Redis pub/sub along with the keyspace notifications for these events.  For the demo, I have focused on a couple of performance metrics (latency for fulfilling a client request, and number of successes and failures).  These events occur on one microservice, a geolocator service that depends on the US Census Bureau's free service, and are relayed via the keyspace notifications to another microservice, the analyzer.  The analyzer is mostly a stub at this point, although it performs a few basic functions such as computing the average latency over the latest set of lookup calls.  In real life, I'd envision this microservice connecting to something like a database or system like graylog to graph service performance.
+I have created a demo program that shows a microservices-based solution for tracking and reporting events of interest using the suggested method of Redis pub/sub along with the keyspace notifications for these events.  For the demo, I have focused on a couple of performance metrics (latency for fulfilling a client request, and number of successes and failures).  These events occur in one microservice, a geolocator service that depends on the US Census Bureau's free service, and are relayed via the keyspace notifications to another microservice, the analyzer.  The analyzer is mostly a stub at this point, although it performs a few basic functions such as computing the average latency over the latest set of lookup calls.  In real life, I'd envision this microservice connecting to something like a database or system like graylog to graph service performance.
 
 While the assignment suggested it was ok to simply have some workers that sleep and do nothing, I felt that for the sake of proper integration testing and monitoring, I would build REST APIs around both services.  Since both services (and Redis) are running in Docker containers, having a way of poking into the system from the outside is essential for testing and monitoring.  And having an HTTP already, it was not too big of a deal to make it actually do something.
 
 One other quick note about "workers".  In Go, every HTTP request is served in it's own goroutine, so these are my workers.  I had considered making each HTTP request handle bulk requests via a pool of goroutines, and while this eminently doable, it's seems unnecessary to demonstrate the behavior.  I have a multi-threaded HTTP-based integration test that effectively creates this set of "workers" and the system functions normally under those conditions.
 
 ## Events and Semantics
-One of the interesting aspects of this project is considering the semantics of the data passed and the resulting requirements for the event generator (locator) and receiver (analyzer).  If the data is stateless and the order is not particularly important, then every worker (HTTP request goroutine here) can send it's data at once, and the event receiver can be mutithreaded.  Stuff being averaged or aggregated, such as the things I am sending, fit this bill.  That said, I have written the code so that the receiver can be multi-threaded or not (set numWorkers to 1 for the latter).  The go-redis package I used provides a channel to receive subscribed events, so this is perfect for single or multiple receiver workers.
+One of the interesting aspects of this project is considering the semantics of the data passed and the resulting requirements for the event generator (locator) and receiver (analyzer).  If the data is stateless and the order is not particularly important, then every worker (HTTP request goroutine here) can send it's data at once, and the event receiver can be mutithreaded.  Stuff being averaged or aggregated, such as the things I am sending, fits this bill.  That said, I have written the code so that the receiver can be multi-threaded or not (set numWorkers to 1 for the latter).  The go-redis package I used provides a channel to receive subscribed events, so this is perfect for single or multiple receiver workers.
 
-On the sending side, there are some situations where you might want to ensure that certain sets of events are sent in a bunch, so that concurrent threads do not intersperse setting the same keys.  For this, I have adde the capability of the sender acquiring a redis-wide lock by writing a (crappy) lock using the (crappy) algorithm suggested in the Redis doc for "Set".  This algorithm has many issues, but it seems to work ok for small databases when properly configured.  It is turned off, as it's not needed for my data, but I have also run my integration test with it on.  There are proper distributed locking algorithms out there based on redigo, but I have only worked with go-redis to date, and am not super-experienced with Redis, so I stuck with what I knew best.
+On the sending side, there are some situations where you might want to ensure that certain sets of events are sent in a bunch, so that concurrent threads do not intersperse setting the same keys.  For this, I have added the capability of the sender acquiring a redis-wide lock by writing a (crappy) lock using the (crappy) algorithm suggested in the Redis doc for "Set".  This algorithm has many issues, but it seems to work ok for small databases when properly configured.  It is turned off, as it's not needed for my data, but I have also successfully run my integration test with it on.  There are proper distributed locking algorithms out there based on redigo, but I have only worked with go-redis to date, and am not super-experienced with Redis, so I stuck with what I knew best.
 
 Back to semantics, Redis has the feature that multiple requests from all over are queued up and served in order.  Using that along with locking senders to ensure atomicity of sent data, a receiver can make sense of the data when received in a single receivng goroutine.  But there's still no guarantee that by the time the receiver has read the data, that the key's value hasn't been changed since the event was received.  If the latter semantics are important, the sender would need to receive some kind of ack back before sending more data (probably using another keyspace event), which I did not get to implementing, but it would not be hard to add in the locking mechanism.  On the other hand, using unique keys for distinct pieces of data of a given type might be a better way of keeping the data straight, as opposed to a complex locking mechanism.
 
@@ -19,11 +19,63 @@ Back to semantics, Redis has the feature that multiple requests from all over ar
 
 * Build instructions (any 3rd party requirements and how to generally get them setup on either linux or mac) -- docker-compose or something similar is suggested
 
-I have written a docker-compose script and Dockerfiles to build both microservices.  There is also a puny Makefile present, so you can run `make composeup` to build and start both services and redis.  You can ctrl-C to kill everything, or much better you can run `make composedown`, which more actually seems to send the termination signal to PID 1.  If you don't have `make`, you can simply copy those commands out of the Makefile.  Running compuseup from a terminal, you will see the output from each service, a different color at the start of the output for each service.  Note I created vendor folder for each service, to avoid `go get
+I have written a docker-compose script and Dockerfiles to build both microservices.  There is also a puny Makefile present, so you can run `make composeup` to build and start both services and redis.  You can ctrl-C to kill everything, or much better you can run `make composedown`, which more actually seems to send the termination signal to PID 1.  If you don't have `make`, you can simply copy those commands out of the Makefile.  Running compuseup from a terminal, you will see the output from each service, a different color at the start of the output for each service.  Note I created vendor folder for each service, to avoid `go get`
 
 - Usage instructions (i.e. samples to actually show how it works)
+The integration test under _locator/tests/integration_ invokes the REST API to do gecode lookups and get the resultant stats from the analyzer, including concurrent execution.  You run this from your external enviornment outside the container (MacOS for me), simply run `go test` in that directory.
 
-The provess above both built and started the service
+Note the docker containers all expose system chosen external ports, so you can use a tool like Postman to test the endpoints.
+
+```
+$ docker ps
+CONTAINER ID        IMAGE                   COMMAND                  CREATED             STATUS              PORTS                     NAMES
+f44629980651        locator-demo_locator    "./locator"              10 seconds ago      Up 8 seconds        0.0.0.0:32933->8080/tcp   locator-demo_locator_1
+f03f41d3e485        locator-demo_analyzer   "./analyzer"             10 seconds ago      Up 8 seconds        0.0.0.0:32932->8090/tcp   locator-demo_analyzer_1
+faea84450839        redis:alpine            "docker-entrypoint.s…"   17 hours ago        Up 9 seconds        0.0.0.0:32931->6379/tcp   locator-demo_redis_1
+```
+
+Here we see the services are running on localhost on ports 32933 and 32932.
+
+Assuming those port numbers, in Postman you could do a POST of a lookup request to the locator:
+```
+http://localhost:32933/v1/lookup
+```
+with payload:
+```
+{
+    "struct_number": "4600",
+    "street": "Silver Hill Rd",
+    "city": "Suitland",
+    "state": "MD",
+    "zip": "20746"
+}
+```
+
+and get back
+```
+{
+    "zip": "20746",
+    "coordinates": {
+        "x": -76.92691,
+        "y": 38.846542
+    }
+}
+```
+
+Then you could invoke the statistics endpoint of the analyzer woith a GET:
+```
+http://localhost:32913/v1/statistics
+```
+and see something like
+```
+{
+    "success": 1,
+    "failure": 0,
+    "latency_events": 1,
+    "latency": "1.851453233s"
+}
+```
+
 - Unit tests
 - Integration tests
 - Are there any shortcomings of the code?
