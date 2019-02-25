@@ -22,6 +22,7 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// Receiver stores some statistics from the received events.
 type Receiver struct {
 	cli        *redis.Client
 	latencyCnt int64
@@ -115,7 +116,7 @@ func (r *Receiver) GetStats() (*types.StatsResponse, error) {
 		avg = float64(sum) / float64(len(res))
 	}
 	davg := time.Duration(int64(math.Round(avg)))
-	return &types.StatsResponse{Success: r.succCnt, Failure: r.errCnt,
+	return &types.StatsResponse{Success: r.succCnt, Error: r.errCnt,
 		LatencyCount: r.latencyCnt, Latency: davg.String()}, nil
 }
 

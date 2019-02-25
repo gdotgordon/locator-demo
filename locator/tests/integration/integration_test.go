@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/gdotgordon/locator-demo/analyzer/types"
+	"github.com/go-redis/redis"
 )
 
 const (
@@ -22,6 +23,12 @@ const (
     "city": "Suitland",
     "state": "MD",
     "zip": "20746"
+	}`
+	req2 = `{
+    "struct_number": "204",
+    "street": "Williams Ct",
+    "city": "Stroudsburg",
+    "state": "PA"
 	}`
 
 	badReq = `{
@@ -35,12 +42,16 @@ const (
 var (
 	locatorAddr  string
 	analyzerAddr string
+	redisAddr    string
+	cli          *redis.Client
 )
 
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 	locatorAddr, _ = getAppAddr("locator", "8080")
 	analyzerAddr, _ = getAppAddr("analyzer", "8090")
+	redisAddr, _ = getAppAddr("redis", "6379")
+	cli, _ = NewClient()
 	os.Exit(m.Run())
 }
 
@@ -55,7 +66,7 @@ func TestStatus(t *testing.T) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Unexpected return code: %d", resp.StatusCode)
+		t.Fatalf("Unexpected return code: %d", resp.StatusCode)
 	}
 	var b bytes.Buffer
 	ioutil.ReadAll(&b)
@@ -71,18 +82,33 @@ func TestSingleInvoke(t *testing.T) {
 	resp, err := http.Post("http://"+locatorAddr+"/v1/lookup",
 		"application/json", &buf)
 	if err != nil {
-		log.Fatalf("error requesting location: %v", err)
+		t.Fatalf("error requesting location: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalf("Unexpected return code: %d", resp.StatusCode)
+		t.Fatalf("Unexpected return code: %d", resp.StatusCode)
 	}
 	b, _ := ioutil.ReadAll(resp.Body)
 	fmt.Printf("here's my response: '%s'\n", b)
 
 	sr := getStatistics()
 	fmt.Printf("got statstics: %+v\n", sr)
+	if sr.Success != 1 && sr.Error != 0 {
+		t.Fatalf("Expected 4 succ, 1 error, but got %d, %d\n", sr.Success, sr.Error)
+	}
+
+	s, err := getValueForKey(types.SuccessKey)
+	if err != nil {
+		t.Fatalf("Key lookup failed: %v", err)
+	}
+	e, err := getValueForKey(types.ErrorKey)
+	if err != redis.Nil {
+		t.Fatalf("Key lookup should not have succeeded: %v", err)
+	}
+	if s != "1" && e != "0" {
+		t.Fatalf("Expected 0 succ, 0 error, but got %d, %d\n", sr.Success, sr.Error)
+	}
 }
 
 func TestConcurrentInvoke(t *testing.T) {
@@ -97,20 +123,23 @@ func TestConcurrentInvoke(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			var buf bytes.Buffer
-			if i != 0 {
-				buf.Write([]byte(req1))
-			} else {
+			switch i {
+			case 0:
 				buf.Write([]byte(badReq))
+			case 1:
+				buf.Write([]byte(req2))
+			default:
+				buf.Write([]byte(req1))
 			}
 			resp, err := http.Post("http://"+locatorAddr+"/v1/lookup",
 				"application/json", &buf)
 			if err != nil {
-				log.Fatalf("error requesting location: %v", err)
+				t.Fatalf("error requesting location: %v", err)
 			}
 			defer resp.Body.Close()
 
 			if i != 0 && resp.StatusCode != http.StatusOK {
-				log.Fatalf("Unexpected return code: %d", resp.StatusCode)
+				t.Fatalf("Unexpected return code: %d", resp.StatusCode)
 			}
 
 			b, _ := ioutil.ReadAll(resp.Body)
@@ -120,6 +149,21 @@ func TestConcurrentInvoke(t *testing.T) {
 	wg.Wait()
 	sr := getStatistics()
 	fmt.Printf("got statstics: %+v\n", sr)
+	if sr.Success != 4 && sr.Error != 1 {
+		t.Fatalf("Expected 4 succ, 1 error, but got %d, %d\n", sr.Success, sr.Error)
+	}
+
+	s, err := getValueForKey(types.SuccessKey)
+	if err != nil {
+		t.Fatalf("Key lookup failed: %v", err)
+	}
+	e, err := getValueForKey(types.ErrorKey)
+	if err != nil {
+		t.Fatalf("Key lookup failed: %v", err)
+	}
+	if s != "4" && e != "1" {
+		t.Fatalf("Expected 4 succ, 1 error, but got %d, %d\n", sr.Success, sr.Error)
+	}
 }
 
 func getAppAddr(app, port string) (string, error) {
@@ -146,6 +190,28 @@ func getStatistics() types.StatsResponse {
 
 	}
 	return sr
+}
+
+func NewClient() (*redis.Client, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	_, err := client.Ping().Result()
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func getValueForKey(key string) (string, error) {
+	res, err := cli.Get(key).Result()
+	if err != nil {
+		return "", err
+	}
+	return res, nil
 }
 
 func clearDatabase() error {

@@ -1,3 +1,4 @@
+// Pacakge api is the endpoint implementation for the analyzer service.
 package api
 
 import (

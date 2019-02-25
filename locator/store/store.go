@@ -22,6 +22,7 @@ type Store interface {
 	Unlock(lock *locking.Lock) error
 }
 
+// RedisStore implments the Store interface for the Redis client.
 type RedisStore struct {
 	cli *redis.Client
 }

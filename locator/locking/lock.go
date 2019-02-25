@@ -30,7 +30,7 @@ type Lock struct {
 	uniq    string
 }
 
-// Create a new lock with the desired settings.
+// New creates a new lock with the desired settings.
 func New(cli *redis.Client, expiry time.Duration, retries int) *Lock {
 	return &Lock{cli: cli, expiry: expiry, retries: retries}
 }
@@ -53,6 +53,7 @@ func (l *Lock) Lock() error {
 	return errors.New("could not acquire lock")
 }
 
+// Lock unlocks the lock provided the unique identifier matches.
 func (l *Lock) Unlock() error {
 	oval, err := l.cli.Get(types.LockKey).Result()
 	if err != nil {
