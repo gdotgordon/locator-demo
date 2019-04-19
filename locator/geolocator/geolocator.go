@@ -29,11 +29,14 @@ type Geolocator interface {
 }
 
 const (
-	CensusURL    = "https://geocoding.geo.census.gov/geocoder/locations/address?"
+	// CensusURL is the location of the geolocator service
+	CensusURL = "https://geocoding.geo.census.gov/geocoder/locations/address?"
+
+	// CensusStdPrm is the query param string for the URL
 	CensusStdPrm = "&benchmark=9&format=json"
 )
 
-// Our implementation uses the free service at the US Census bureau.
+// CensusGeolocator uses the free service at the US Census bureau.
 type CensusGeolocator struct {
 	client     *http.Client
 	store      store.Store
@@ -97,23 +100,23 @@ func (cl *CensusGeolocator) Locate(ctx context.Context,
 	// Bleh: the web site doesn't like Go's escaped '='
 	// qs = url.QueryEscape(buf.String())
 	qs := strings.Replace(buf.String(), " ", "+", -1)
-	reqUrl := CensusURL + qs
-	req, err := http.NewRequest(http.MethodGet, reqUrl, nil)
+	reqURL := CensusURL + qs
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
 	if err != nil {
-		log.Printf("error creating request '%s': %v\n", reqUrl, err)
+		log.Printf("error creating request '%s': %v\n", reqURL, err)
 		return nil, err
 	}
 	req.Header.Add("Content-type", "application/json")
 	req = req.WithContext(ctx)
 	resp, err := cl.client.Do(req)
 	if err != nil {
-		log.Printf("error opening '%s': %v\n", reqUrl, err)
+		log.Printf("error opening '%s': %v\n", reqURL, err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("location lookup failed '%s': %v\n", reqUrl, err)
+		log.Printf("location lookup failed '%s': %v\n", reqURL, err)
 		err = fmt.Errorf("HTTP status %d : %s", resp.StatusCode,
 			http.StatusText(resp.StatusCode))
 		return nil, err

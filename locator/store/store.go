@@ -13,11 +13,12 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// Store is the data store abstraction.
 type Store interface {
 	StoreLatency(d time.Duration) error
 	AddSuccess() error
 	AddError() error
-	ClearDatabase() error
+	Clear() error
 	AcquireLock() (*locking.Lock, error)
 	Unlock(lock *locking.Lock) error
 }
@@ -27,10 +28,12 @@ type RedisStore struct {
 	cli *redis.Client
 }
 
+// NewRedisStore does
 func NewRedisStore(cli *redis.Client) Store {
 	return &RedisStore{cli: cli}
 }
 
+// AcquireLock does
 func (rs *RedisStore) AcquireLock() (*locking.Lock, error) {
 	lck := locking.New(rs.cli, 1*time.Minute, 10)
 	return lck, lck.Lock()
@@ -40,7 +43,7 @@ func (rs *RedisStore) Unlock(lock *locking.Lock) error {
 	return lock.Unlock()
 }
 
-func (rs *RedisStore) ClearDatabase() error {
+func (rs *RedisStore) Clear() error {
 	return rs.cli.FlushDB().Err()
 }
 
