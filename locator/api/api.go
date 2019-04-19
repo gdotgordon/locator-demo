@@ -1,4 +1,4 @@
-// Pacakge api is the endpoint implementation for the analyzer service.
+// Package api is the endpoint implementation for the analyzer service.
 package api
 
 import (
@@ -15,13 +15,14 @@ import (
 	"github.com/gorilla/mux"
 )
 
-type Api struct {
+type api struct {
 	loc   geolocator.Geolocator
 	store store.Store
 }
 
+// Init sets up the HTTP API bindings and handlers
 func Init(ctx context.Context, r *mux.Router, store store.Store) error {
-	ap := Api{}
+	ap := api{}
 	r.HandleFunc("/v1/status", wrapContext(ctx, ap.getStatus)).Methods("GET")
 	r.HandleFunc("/v1/lookup", wrapContext(ctx, ap.lookup)).Methods("POST")
 	ap.loc = geolocator.New(30, store)
@@ -30,7 +31,7 @@ func Init(ctx context.Context, r *mux.Router, store store.Store) error {
 }
 
 // Liveness check
-func (a *Api) getStatus(w http.ResponseWriter, r *http.Request) {
+func (a *api) getStatus(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	sr := types.StatusResponse{Status: "locator service up and running"}
@@ -46,7 +47,7 @@ func (a *Api) getStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // Look up a geocdoing.
-func (a *Api) lookup(w http.ResponseWriter, r *http.Request) {
+func (a *api) lookup(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	if !strings.HasPrefix(r.Header.Get("Content-type"), "application/json") {

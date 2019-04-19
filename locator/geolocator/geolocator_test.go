@@ -26,7 +26,7 @@ func (nos NoOpStore) AddError() error {
 	return nil
 }
 
-func (nos NoOpStore) ClearDatabase() error {
+func (nos NoOpStore) Clear() error {
 	return nil
 }
 
