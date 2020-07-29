@@ -1,4 +1,4 @@
-# ForgeRock SaaS Software Engineer Coding Challenge
+# Coding Challenge
 
 ## Introduction and Overview
 
